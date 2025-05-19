@@ -8,13 +8,29 @@ const EventList = () => {
   const [sortCriterion, setSortCriterion] = useState('dateAsc'); // Default sorting: Date Ascending
   const [isEditing, setIsEditing] = useState(false); // To control whether we're in editing mode
   const [editEvent, setEditEvent] = useState(null); // To hold the event data for editing
+  const [isLoading, setIsLoading] = useState(true); // Loading state for initial data fetch
+  const [error, setError] = useState(null); // Error handling
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false); // Delete confirmation modal
+  const [eventToDelete, setEventToDelete] = useState(null); // Event to be deleted
+  const [isDeleting, setIsDeleting] = useState(false); // Loading state for delete operation
+  const [isUpdating, setIsUpdating] = useState(false); // Loading state for update operation
+  const [processingEventId, setProcessingEventId] = useState(null); // Track which event is being processed
 
   useEffect(() => {
     const fetchEvents = async () => {
-      const eventsQuery = query(collection(db, 'age-calculator'), orderBy('date', 'asc'));
-      const querySnapshot = await getDocs(eventsQuery);
-      const eventsData = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-      setEvents(eventsData);
+      setIsLoading(true);
+      try {
+        const eventsQuery = query(collection(db, 'age-calculator'), orderBy('date', 'asc'));
+        const querySnapshot = await getDocs(eventsQuery);
+        const eventsData = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setEvents(eventsData);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching events:', err);
+        setError('Failed to load events. Please try again later.');
+      } finally {
+        setIsLoading(false);
+      }
     };
     fetchEvents();
   }, []);
@@ -101,6 +117,21 @@ const EventList = () => {
     }
     setEvents(sortedEvents);
   };
+  // Helper function to get descriptive text for sort criterion
+  const getSortDescription = (criterion) => {
+    switch(criterion) {
+      case 'dateAsc': 
+        return 'Oldest first';
+      case 'dateDesc': 
+        return 'Newest first';
+      case 'nextEventAsc': 
+        return 'Upcoming soon';
+      case 'nextEventDesc': 
+        return 'Upcoming later';
+      default:
+        return 'Sort by date';
+    }
+  };
 
   const handleSortChange = () => {
     const nextCriterion = {
@@ -113,13 +144,29 @@ const EventList = () => {
     sortEvents(nextCriterion);
   };
 
-  const handleDelete = async (eventId) => {
+  const confirmDelete = (event) => {
+    setEventToDelete(event);
+    setShowDeleteConfirmation(true);
+  };
+  
+  const cancelDelete = () => {
+    setShowDeleteConfirmation(false);
+    setEventToDelete(null);
+  };
+
+  const handleDelete = async () => {
+    if (!eventToDelete) return;
+    setIsDeleting(true); // Start loading state for delete
     try {
-      const eventRef = doc(db, 'age-calculator', eventId);
+      const eventRef = doc(db, 'age-calculator', eventToDelete.id);
       await deleteDoc(eventRef);
-      setEvents(events.filter((event) => event.id !== eventId)); // Update local state to reflect the deletion
+      setEvents(events.filter((event) => event.id !== eventToDelete.id));
+      setShowDeleteConfirmation(false);
+      setEventToDelete(null);
     } catch (error) {
       console.error('Error deleting event:', error);
+    } finally {
+      setIsDeleting(false); // End loading state for delete
     }
   };
 
@@ -129,6 +176,7 @@ const EventList = () => {
   };
 
   const handleUpdateEvent = async () => {
+    setIsUpdating(true); // Start loading state for update
     try {
       const eventRef = doc(db, 'age-calculator', editEvent.id);
       await updateDoc(eventRef, {
@@ -141,6 +189,8 @@ const EventList = () => {
       setIsEditing(false); // Close the edit modal
     } catch (error) {
       console.error('Error updating event:', error);
+    } finally {
+      setIsUpdating(false); // End loading state for update
     }
   };
 
@@ -150,69 +200,193 @@ const EventList = () => {
       ...prevEvent,
       [name]: value,
     }));
-  };
-
-  return (
-    <div className="event-list">
-      <h2 style={{ marginTop: 10, marginBottom: 10, marginLeft: 5 }}>
-        Saved Events
-        <button onClick={handleSortChange} style={{ marginLeft: '10px' }}>
-          Sort: {sortCriterion.replace(/([A-Z])/g, ' $1').toUpperCase()}
-        </button>
-      </h2>
-      {events.map((event) => {
-        const { ageYears, ageMonths, ageDays } = calculateAge(event.date);
-        const { countdownYears, countdownMonths, countdownDays } = getNextEventCountdown(event.date);
-
-        return (
-          <div key={event.id} className="event-item">
-            <h3>{event.name}</h3>
-            <p>Date: {event.date}</p>
-            <p>Type: {event.type}</p>
-            <p>Age: {ageYears} years, {ageMonths} months, {ageDays} days</p>
-            <p>Next Event in: {countdownYears} years, {countdownMonths} months, {countdownDays} days</p>
-            <button onClick={() => handleEdit(event)} style={{ marginRight: '10px' }}>
-              Edit
+  };  return (
+    <div className="event-list-wrapper">
+      <div className="event-list-header">
+        <h2>Events</h2>
+        {!isLoading && !error && events.length > 0 && (
+          <div className="sort-control">
+            <button className="sort-button" onClick={handleSortChange}>
+              <span className="sort-icon">🔄</span>
+              <span className="sort-text">{getSortDescription(sortCriterion)}</span>
             </button>
-            <button onClick={() => handleDelete(event.id)}>Delete</button>
           </div>
-        );
-      })}
+        )}
+      </div>
+      
+      {isLoading && (
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Loading events...</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="error-container">
+          <div className="error-icon">⚠️</div>
+          <p>{error}</p>
+          <button className="retry-btn" onClick={() => window.location.reload()}>
+            Try Again
+          </button>
+        </div>
+      )}
+      
+      {!isLoading && !error && (
+        <div className="events-grid">
+          {events.map((event, index) => {
+            const { ageYears, ageMonths, ageDays } = calculateAge(event.date);
+            const { countdownYears, countdownMonths, countdownDays } = getNextEventCountdown(event.date);
+            
+            // Format the date in a more readable way
+            const eventDate = new Date(event.date);
+            const formattedDate = eventDate.toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            });
 
-      {/* Edit Event Modal */}
+            return (
+              <div key={event.id} className="event-card">
+                <div className="event-header">
+                  <h3>{event.name}</h3>
+                  <span className="event-type-badge">{event.type}</span>
+                </div>
+                <div className="event-info">
+                  <div className="info-row">
+                    <span className="info-label">Date:</span> 
+                    <span className="info-value">{formattedDate}</span>
+                  </div>
+                  <div className="info-row">
+                    <span className="info-label">Age:</span> 
+                    <div className="age-display">
+                      <div className="age-unit">
+                        <span className="age-number">{ageYears}</span>
+                        <span className="age-label">years</span>
+                      </div>
+                      <div className="age-unit">
+                        <span className="age-number">{ageMonths}</span>
+                        <span className="age-label">months</span>
+                      </div>
+                      <div className="age-unit">
+                        <span className="age-number">{ageDays}</span>
+                        <span className="age-label">days</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="info-row countdown">
+                    <span className="info-label">Next Event:</span>
+                    <div className="countdown-display">
+                      <div className="countdown-unit">
+                        <span className="countdown-number">{countdownYears}</span>
+                        <span className="countdown-label">years</span>
+                      </div>
+                      <div className="countdown-unit">
+                        <span className="countdown-number">{countdownMonths}</span>
+                        <span className="countdown-label">months</span>
+                      </div>
+                      <div className="countdown-unit">
+                        <span className="countdown-number">{countdownDays}</span>
+                        <span className="countdown-label">days</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>                <div className="event-actions">
+                  <button 
+                    className="edit-btn" 
+                    onClick={() => handleEdit(event)} 
+                    disabled={isUpdating && processingEventId === event.id}
+                  >
+                    <span className="btn-icon">✏️</span> Edit
+                  </button>
+                  <button 
+                    className="delete-btn" 
+                    onClick={() => confirmDelete(event)} 
+                    disabled={isDeleting}
+                  >
+                    <span className="btn-icon">🗑️</span> Delete
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      
+      {!isLoading && !error && events.length === 0 && (
+        <div className="no-events">
+          <div className="no-events-icon">📅</div>
+          <p>No events found. Add some events to see them here!</p>
+        </div>
+      )}{/* Edit Event Modal */}
       {isEditing && (
         <div className="modal">
           <div className="modal-content">
             <h2>Edit Event</h2>
-            <label>
-              Name:
+            <div className="form-group">
+              <label htmlFor="name">Event Name</label>
               <input
+                id="name"
                 type="text"
                 name="name"
                 value={editEvent.name}
                 onChange={handleChange}
+                placeholder="Enter event name"
               />
-            </label>
-            <label>
-              Type:
-              <input
-                type="text"
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="type">Event Type</label>
+              <select
+                id="type"
                 name="type"
                 value={editEvent.type}
                 onChange={handleChange}
-              />
-            </label>
-            <label>
-              Date:
+              >
+                <option value="Birthday">Birthday</option>
+                <option value="Anniversary">Anniversary</option>
+                <option value="Wedding">Wedding</option>
+                <option value="Graduation">Graduation</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="date">Event Date</label>
               <input
+                id="date"
                 type="date"
                 name="date"
                 value={editEvent.date}
                 onChange={handleChange}
               />
-            </label>
-            <button onClick={handleUpdateEvent}>Save</button>
-            <button onClick={() => setIsEditing(false)}>Cancel</button>
+            </div>
+            
+            <div className="modal-actions">
+              <button onClick={handleUpdateEvent} disabled={isUpdating}>
+                <span className="btn-icon">💾</span> {isUpdating ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button onClick={() => setIsEditing(false)}>
+                <span className="btn-icon">❌</span> Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}      {/* Delete Confirmation Modal */}
+      {showDeleteConfirmation && (
+        <div className="modal">
+          <div className="modal-content delete-confirmation-modal">
+            <h2>Delete Event</h2>
+            <p>Are you sure you want to delete <span className="highlight">{eventToDelete?.name}</span>?</p>
+            <p className="warning-text">This action cannot be undone</p>
+            
+            <div className="modal-actions">
+              <button className="delete-confirm-btn" onClick={handleDelete} disabled={isDeleting}>
+                {isDeleting ? 'Deleting...' : 'Delete'}
+              </button>
+              <button className="delete-cancel-btn" onClick={cancelDelete}>
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}

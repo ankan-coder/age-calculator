@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import "../styles/AgeCalculator.css";
 
-const AgeCalculator = () => {
+const AgeCalculator = ({ onClose }) => {
   const [date, setDate] = useState("");
   const [ageDetails, setAgeDetails] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -56,42 +56,80 @@ const AgeCalculator = () => {
       setLoading(false);
     }, 1000); // Simulate a small delay for a better user experience
   };
-
   return (
     <div className="age-calculator">
-      <h2>Age Calculator</h2>
+      <h2>Precise Age Calculator</h2>
       <form onSubmit={handleSubmit}>
         <label>
-          Enter Date of Birth:
+          <span className="input-label">Enter Your Date of Birth</span>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             required
+            className="date-input"
           />
         </label>
-        <button type="submit" disabled={loading}>
-          {loading ? "Calculating..." : "Calculate Age"}
+        <button type="submit" disabled={loading} className="calc-button">
+          {loading ? (
+            <span className="loading-text">
+              <span className="loading-icon">⏳</span> Calculating...
+            </span>
+          ) : (
+            <span className="button-text">
+              <span className="button-icon">🔍</span> Calculate Age
+            </span>
+          )}
         </button>
       </form>
+      
       {loading && <div className="loader"></div>}
+      
       {ageDetails && !loading && (
-        <div>
-          <p>Your age is:</p>
-          <ul>
-            <li>{ageDetails.age.years} years</li>
-            <li>{ageDetails.age.months} months</li>
-            <li>{ageDetails.age.weeks} weeks</li>
-            <li>{ageDetails.age.days} days</li>
-            <li>{ageDetails.age.hours} hours</li>
-            <li>{ageDetails.age.minutes} minutes</li>
-            <li>{ageDetails.age.seconds} seconds</li>
-            <li>{ageDetails.age.milliseconds} milliseconds</li>
+        <div className="results-container">
+          <p className="results-title">Your Precise Age:</p>
+          <ul className="age-metrics">
+            <li className="metric-item years-metric">
+              <span className="metric-value">{ageDetails.age.years}</span>
+              <span className="metric-label">Years</span>
+            </li>
+            <li className="metric-item months-metric">
+              <span className="metric-value">{ageDetails.age.months}</span>
+              <span className="metric-label">Months</span>
+            </li>
+            <li className="metric-item weeks-metric">
+              <span className="metric-value">{ageDetails.age.weeks}</span>
+              <span className="metric-label">Weeks</span>
+            </li>
+            <li className="metric-item days-metric">
+              <span className="metric-value">{ageDetails.age.days}</span>
+              <span className="metric-label">Days</span>
+            </li>
+            <li className="metric-item hours-metric">
+              <span className="metric-value">{ageDetails.age.hours}</span>
+              <span className="metric-label">Hours</span>
+            </li>
+            <li className="metric-item minutes-metric">
+              <span className="metric-value">{ageDetails.age.minutes}</span>
+              <span className="metric-label">Minutes</span>
+            </li>
+            <li className="metric-item seconds-metric">
+              <span className="metric-value">{ageDetails.age.seconds}</span>
+              <span className="metric-label">Seconds</span>
+            </li>
+            <li className="metric-item milliseconds-metric">
+              <span className="metric-value">{ageDetails.age.milliseconds}</span>
+              <span className="metric-label">Milliseconds</span>
+            </li>
           </ul>
-          <p>Next 10 Birthdays:</p>
-          <ul>
+          
+          <p className="birthdays-title">Your Next 10 Birthdays:</p>
+          <ul className="birthdays-list">
             {ageDetails.birthdays.map((birthday, index) => (
-              <li key={index}>{birthday}</li>
+              <li key={index} className="birthday-item">
+                <span className="birthday-number">#{index + 1}</span>
+                <span className="birthday-date">{birthday}</span>
+              </li>
             ))}
           </ul>
         </div>

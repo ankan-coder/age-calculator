@@ -3,11 +3,12 @@ import { addDoc, collection } from "firebase/firestore";
 import { db } from "../firebase";
 import "../styles/Form.css";
 
-const EventForm = () => {
+const EventForm = ({ onClose }) => {
   const [name, setName] = useState("");
   const [date, setDate] = useState("");
   const [type, setType] = useState("");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const eventTypes = [
     "Birthday",
@@ -17,7 +18,6 @@ const EventForm = () => {
     "Celebration",
     "Bought On"
   ];
-
   const handleSave = async (e) => {
     e.preventDefault();
   
@@ -35,63 +35,97 @@ const EventForm = () => {
     }
   
     try {
+      setIsSubmitting(true);
       await addDoc(collection(db, "age-calculator"), { name, date, type });
-      alert("Event saved successfully!");
       setName("");
       setDate("");
       setType("");
       setError(""); // Clear error message
-      window.location.reload(); // Reload the page
+      
+      // Instead of reloading the page, close the modal and refresh the list
+      if (onClose) {
+        onClose();
+      }
+      // Reload the page to refresh the event list
+      window.location.reload();
     } catch (error) {
       console.error("Error saving event: ", error);
-      alert("Error saving event. Please try again.");
+      setError("Error saving event. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
   
-
   return (
     <div className="form-container">
       <h2 className="form-title">Add New Event</h2>
       <form className="event-form" onSubmit={handleSave}>
         <div className="form-field">
-          <label htmlFor="name">Name:</label>
-          <input
-            type="text"
-            id="name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            placeholder="Enter name"
-          />
+          <label htmlFor="name" className="field-label">Event Name:</label>
+          <div className="input-wrapper">
+            <span className="input-icon">📝</span>
+            <input
+              type="text"
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              placeholder="Enter event name"
+              className="form-input"
+            />
+          </div>
         </div>
+        
         <div className="form-field">
-          <label htmlFor="date">Event Date:</label>
-          <input
-            type="date"
-            id="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            required
-          />
+          <label htmlFor="date" className="field-label">Event Date:</label>
+          <div className="input-wrapper">
+            <span className="input-icon">📅</span>
+            <input
+              type="date"
+              id="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              required
+              className="form-input"
+            />
+          </div>
         </div>
+        
         <div className="form-field">
-          <label htmlFor="type">Event Type:</label>
-          <select
-            id="type"
-            value={type}
-            onChange={(e) => setType(e.target.value)}
-            required
-          >
-            <option value="">Select Event Type</option>
-            {eventTypes.map((eventType, index) => (
-              <option key={index} value={eventType}>
-                {eventType}
-              </option>
-            ))}
-          </select>
+          <label htmlFor="type" className="field-label">Event Type:</label>
+          <div className="input-wrapper">
+            <span className="input-icon">🏷️</span>
+            <select
+              id="type"
+              value={type}
+              onChange={(e) => setType(e.target.value)}
+              required
+              className="form-select"
+            >
+              <option value="">Select Event Type</option>
+              {eventTypes.map((eventType, index) => (
+                <option key={index} value={eventType}>
+                  {eventType}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
-        {error && <p className="error-message">{error}</p>}
-        <button type="submit" className="submit-btn">Save Event</button>
+        
+        {error && (
+          <div className="error-container">
+            <span className="error-icon">⚠️</span>
+            <p className="error-message">{error}</p>
+          </div>
+        )}
+          <button 
+          type="submit" 
+          className="submit-btn" 
+          disabled={isSubmitting}
+        >
+          <span className="button-icon">💾</span>
+          <span className="button-text">{isSubmitting ? 'Saving...' : 'Save Event'}</span>
+        </button>
       </form>
     </div>
   );
