@@ -351,6 +351,52 @@ User Action → Auth Check → Token Retrieval → Firestore Query → Data Vali
 - **Network Errors**: Retry mechanisms and error states
 - **Validation Errors**: Client-side validation with clear error messages
 
+### CI/CD Pipeline & Deployment
+
+#### GitHub to Vercel Auto-Deployment
+
+This project uses a **continuous integration and continuous deployment (CI/CD)** pipeline for automated deployments:
+
+- **Source Control**: GitHub repository hosts the codebase
+- **Automatic Deployment**: Vercel automatically deploys on every push to the main/master branch
+- **Build Process**: 
+  - Vercel detects changes via GitHub webhooks
+  - Runs `npm run build` to create production build
+  - Outputs to `dist` directory (configured in `vercel.json`)
+- **Preview Deployments**: Every pull request gets a unique preview URL
+- **Zero-Downtime Deployments**: New deployments go live instantly without service interruption
+
+#### Vercel Configuration
+
+The `vercel.json` file configures:
+- **Output Directory**: `dist` (Vite's build output)
+- **Build Command**: `npm run build`
+- **Framework**: Vite
+- **Route Handling**: Rewrites all routes to `index.html` for SPA routing support
+
+#### Deployment Flow
+
+```
+Git Push → GitHub Webhook → Vercel Build → Production Deployment → Live Site
+   ↓              ↓               ↓                  ↓                 ↓
+  Code       Trigger         npm run build      Deploy to CDN    https://*.vercel.app
+```
+
+#### Environment & Configuration
+
+- **Environment Variables**: Can be configured in Vercel dashboard
+- **Build Settings**: Automatically detected from `vercel.json`
+- **Domain Management**: Custom domains can be configured in Vercel
+- **Analytics**: Built-in deployment analytics and performance monitoring
+
+#### Deployment Features
+
+- **Instant Rollbacks**: One-click rollback to previous deployments
+- **Deployment History**: Complete history of all deployments
+- **Build Logs**: Real-time build logs for debugging
+- **Edge Network**: Global CDN for fast content delivery
+- **HTTPS**: Automatic SSL certificates for all deployments
+
 ## 📄 License
 
 This project is private and not licensed for public use.
