@@ -1,24 +1,49 @@
 // src/App.js
 import React, { useState } from "react";
+import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { signOut } from "firebase/auth";
+import { auth } from "./firebase";
+import { useAuth } from "./contexts/AuthContext";
 import AgeCalculator from "./components/AgeCalculator";
 import EventForm from "./components/EventForm";
 import EventList from "./components/EventList";
+import Auth from "./components/Auth";
+import PrivateRoute from "./components/PrivateRoute";
 import "./styles/App.css";
 
-function App() {
+function Home() {
   const [showCalculatorModal, setShowCalculatorModal] = useState(false);
   const [showEventFormModal, setShowEventFormModal] = useState(false);
+  const { user } = useAuth();
+  const navigate = useNavigate();
   
   const openCalculatorModal = () => setShowCalculatorModal(true);
   const closeCalculatorModal = () => setShowCalculatorModal(false);
   
   const openEventFormModal = () => setShowEventFormModal(true);
   const closeEventFormModal = () => setShowEventFormModal(false);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      navigate("/auth");
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
+  };
   
   return (
     <div className="App">
       <div className="minimal-header">
         <h1>Age Calculator</h1>
+        {user && (
+          <div className="user-info">
+            <span className="user-email">{user.email}</span>
+            <button onClick={handleSignOut} className="sign-out-btn">
+              Sign Out
+            </button>
+          </div>
+        )}
       </div>
       
       <main className="main-content">
@@ -59,6 +84,23 @@ function App() {
         <p>© {new Date().getFullYear()} Age Calculator</p>
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/auth" element={<Auth />} />
+      <Route
+        path="/"
+        element={
+          <PrivateRoute>
+            <Home />
+          </PrivateRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 

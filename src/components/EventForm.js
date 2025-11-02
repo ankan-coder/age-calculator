@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { addDoc, collection } from "firebase/firestore";
 import { db } from "../firebase";
+import { useAuth } from "../contexts/AuthContext";
+import { getAuthToken, requireAuth } from "../utils/firebaseAuth";
 import "../styles/Form.css";
 
 const EventForm = ({ onClose }) => {
@@ -9,6 +11,7 @@ const EventForm = ({ onClose }) => {
   const [type, setType] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user } = useAuth();
 
   const eventTypes = [
     "Birthday",
@@ -36,7 +39,28 @@ const EventForm = ({ onClose }) => {
   
     try {
       setIsSubmitting(true);
-      await addDoc(collection(db, "age-calculator"), { name, date, type });
+      
+      // Verify user is authenticated
+      const userId = requireAuth();
+      
+      // Get auth token for secure operation
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error("Authentication required. Please sign in again.");
+      }
+      
+      // Create event with user ID and token metadata
+      const eventData = {
+        name,
+        date,
+        type,
+        userId, // Store user ID for filtering
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      await addDoc(collection(db, "age-calculator"), eventData);
+      
       setName("");
       setDate("");
       setType("");
@@ -50,7 +74,11 @@ const EventForm = ({ onClose }) => {
       window.location.reload();
     } catch (error) {
       console.error("Error saving event: ", error);
-      setError("Error saving event. Please try again.");
+      if (error.message.includes("authenticated")) {
+        setError("You must be signed in to create events. Please sign in again.");
+      } else {
+        setError("Error saving event. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }

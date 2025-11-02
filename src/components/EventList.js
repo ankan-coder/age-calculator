@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, query, orderBy, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, query, deleteDoc, doc, updateDoc, where } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useAuth } from '../contexts/AuthContext';
+import { getAuthToken, requireAuth } from '../utils/firebaseAuth';
 import '../styles/EventList.css';
 
 const EventList = () => {
@@ -15,25 +17,55 @@ const EventList = () => {
   const [isDeleting, setIsDeleting] = useState(false); // Loading state for delete operation
   const [isUpdating, setIsUpdating] = useState(false); // Loading state for update operation
   const [processingEventId, setProcessingEventId] = useState(null); // Track which event is being processed
+  const { user } = useAuth();
 
   useEffect(() => {
     const fetchEvents = async () => {
       setIsLoading(true);
       try {
-        const eventsQuery = query(collection(db, 'age-calculator'), orderBy('date', 'asc'));
+        // Verify user is authenticated
+        const userId = requireAuth();
+        
+        // Get auth token for secure operation
+        const token = await getAuthToken();
+        if (!token) {
+          throw new Error("Authentication required. Please sign in again.");
+        }
+        
+        // Query events filtered by userId only (avoiding composite index requirement)
+        // We'll sort in JavaScript instead
+        const eventsQuery = query(
+          collection(db, 'age-calculator'), 
+          where('userId', '==', userId)
+        );
         const querySnapshot = await getDocs(eventsQuery);
-        const eventsData = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        let eventsData = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        
+        // Sort by date in JavaScript (ascending by default)
+        eventsData.sort((a, b) => new Date(a.date) - new Date(b.date));
+        
         setEvents(eventsData);
         setError(null);
       } catch (err) {
         console.error('Error fetching events:', err);
-        setError('Failed to load events. Please try again later.');
+        if (err.message.includes("authenticated")) {
+          setError('You must be signed in to view events. Please sign in again.');
+        } else {
+          setError('Failed to load events. Please try again later.');
+        }
       } finally {
         setIsLoading(false);
       }
     };
-    fetchEvents();
-  }, []);
+    
+    // Only fetch if user is authenticated
+    if (user) {
+      fetchEvents();
+    } else {
+      setIsLoading(false);
+      setEvents([]);
+    }
+  }, [user]);
 
   const calculateAge = (birthDate) => {
     const today = new Date();
@@ -158,6 +190,20 @@ const EventList = () => {
     if (!eventToDelete) return;
     setIsDeleting(true); // Start loading state for delete
     try {
+      // Verify user is authenticated
+      const userId = requireAuth();
+      
+      // Verify ownership - ensure the event belongs to the current user
+      if (eventToDelete.userId !== userId) {
+        throw new Error("You don't have permission to delete this event.");
+      }
+      
+      // Get auth token for secure operation
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error("Authentication required. Please sign in again.");
+      }
+      
       const eventRef = doc(db, 'age-calculator', eventToDelete.id);
       await deleteDoc(eventRef);
       setEvents(events.filter((event) => event.id !== eventToDelete.id));
@@ -165,6 +211,7 @@ const EventList = () => {
       setEventToDelete(null);
     } catch (error) {
       console.error('Error deleting event:', error);
+      setError(error.message || 'Failed to delete event. Please try again.');
     } finally {
       setIsDeleting(false); // End loading state for delete
     }
@@ -178,17 +225,41 @@ const EventList = () => {
   const handleUpdateEvent = async () => {
     setIsUpdating(true); // Start loading state for update
     try {
+      // Verify user is authenticated
+      const userId = requireAuth();
+      
+      // Find the original event to verify ownership
+      const originalEvent = events.find(e => e.id === editEvent.id);
+      if (!originalEvent) {
+        throw new Error("Event not found.");
+      }
+      
+      // Verify ownership - ensure the event belongs to the current user
+      if (originalEvent.userId !== userId) {
+        throw new Error("You don't have permission to edit this event.");
+      }
+      
+      // Get auth token for secure operation
+      const token = await getAuthToken();
+      if (!token) {
+        throw new Error("Authentication required. Please sign in again.");
+      }
+      
       const eventRef = doc(db, 'age-calculator', editEvent.id);
       await updateDoc(eventRef, {
         name: editEvent.name,
         type: editEvent.type,
         date: editEvent.date,
+        updatedAt: new Date().toISOString()
       });
-      // Update the event in the local state
-      setEvents(events.map((event) => (event.id === editEvent.id ? editEvent : event)));
+      
+      // Update the event in the local state, preserving userId
+      const updatedEvent = { ...editEvent, userId: originalEvent.userId };
+      setEvents(events.map((event) => (event.id === editEvent.id ? updatedEvent : event)));
       setIsEditing(false); // Close the edit modal
     } catch (error) {
       console.error('Error updating event:', error);
+      setError(error.message || 'Failed to update event. Please try again.');
     } finally {
       setIsUpdating(false); // End loading state for update
     }

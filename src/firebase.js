@@ -5,6 +5,16 @@ import { getAnalytics } from "firebase/analytics"; // Firebase Analytics (option
 import { getAuth } from 'firebase/auth';
 
 // Firebase configuration object
+// const firebaseConfig = {
+//   apiKey: "AIzaSyBdo3PA1tcYdRPEp1Sqq_Ru0IWV8E8JDdo",
+//   authDomain: "age-calculator-me-122024.firebaseapp.com",
+//   projectId: "age-calculator-me-122024",
+//   storageBucket: "age-calculator-me-122024.firebasestorage.app",
+//   messagingSenderId: "1041780875251",
+//   appId: "1:1041780875251:web:dbbb06674becb52a3dbc86",
+//   measurementId: "G-YBZFWE10DF",
+// };
+
 const firebaseConfig = {
   apiKey: "AIzaSyBdo3PA1tcYdRPEp1Sqq_Ru0IWV8E8JDdo",
   authDomain: "age-calculator-me-122024.firebaseapp.com",
@@ -12,7 +22,7 @@ const firebaseConfig = {
   storageBucket: "age-calculator-me-122024.firebasestorage.app",
   messagingSenderId: "1041780875251",
   appId: "1:1041780875251:web:dbbb06674becb52a3dbc86",
-  measurementId: "G-YBZFWE10DF",
+  measurementId: "G-YBZFWE10DF"
 };
 
 // Initialize Firebase
