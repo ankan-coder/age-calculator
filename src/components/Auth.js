@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { storeLoginTimestamp } from '../utils/firebaseAuth';
 import '../styles/Auth.css';
 
 const Auth = () => {
@@ -38,6 +39,10 @@ const Auth = () => {
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
+      
+      // Store login timestamp for 7-day session
+      storeLoginTimestamp();
+      
       // Navigate to home after successful authentication
       navigate('/');
     } catch (err) {
@@ -81,6 +86,10 @@ const Auth = () => {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
+      
+      // Store login timestamp for 7-day session
+      storeLoginTimestamp();
+      
       // Navigate to home after successful authentication
       navigate('/');
     } catch (err) {

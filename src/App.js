@@ -4,6 +4,7 @@ import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { signOut } from "firebase/auth";
 import { auth } from "./firebase";
 import { useAuth } from "./contexts/AuthContext";
+import { clearLoginTimestamp } from "./utils/firebaseAuth";
 import AgeCalculator from "./components/AgeCalculator";
 import EventForm from "./components/EventForm";
 import EventList from "./components/EventList";
@@ -25,6 +26,8 @@ function Home() {
 
   const handleSignOut = async () => {
     try {
+      // Clear login timestamp on sign out
+      clearLoginTimestamp();
       await signOut(auth);
       navigate("/auth");
     } catch (error) {

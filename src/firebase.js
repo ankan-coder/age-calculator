@@ -2,7 +2,7 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore"; // Firestore functions
 import { getAnalytics } from "firebase/analytics"; // Firebase Analytics (optional)
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 
 // Firebase configuration object
 // const firebaseConfig = {
@@ -36,3 +36,9 @@ export const analytics = getAnalytics(app);
 
 // Initialize Firebase Authentication
 export const auth = getAuth(app);
+
+// Set persistence to 'local' for 7-day session
+// This stores authentication state in localStorage, persisting across browser sessions
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error('Error setting auth persistence:', error);
+});
