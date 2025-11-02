@@ -28,6 +28,18 @@
   font-size: 1.3rem;
   font-weight: 500;
   color: #2c3e50;
+  position: relative;
+}
+
+.event-list-header h2::after {
+  content: '';
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  width: 50px;
+  height: 2px;
+  background-color: #667eea;
+  transform: none;
 }
 
 /* Events Grid Layout */
@@ -453,6 +465,7 @@ h2::after {
 .sort-control {
   display: flex;
   align-items: center;
+  gap: 10px;
 }
 
 .sort-button {
@@ -474,10 +487,24 @@ h2::after {
   background-color: #e8e8e8;
 }
 
+.sort-button.clear-filter-btn {
+  background-color: #e74c3c;
+  color: white;
+  border-color: #c0392b;
+}
+
+.sort-button.clear-filter-btn:hover {
+  background-color: #c0392b;
+}
+
 .sort-button::before {
   content: 'Sort: ';
   font-size: 0.75rem;
   color: #666;
+}
+
+.sort-button.clear-filter-btn::before {
+  content: '';
 }
 
 .sort-icon {

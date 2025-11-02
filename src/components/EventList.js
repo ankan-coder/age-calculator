@@ -7,7 +7,8 @@ import '../styles/EventList.css';
 
 const EventList = () => {
   const [events, setEvents] = useState([]);
-  const [sortCriterion, setSortCriterion] = useState('dateAsc'); // Default sorting: Date Ascending
+  const [allEvents, setAllEvents] = useState([]); // Store all events for filtering
+  const [sortCriterion, setSortCriterion] = useState('nearestFirst'); // Default sorting: Nearest date first
   const [isEditing, setIsEditing] = useState(false); // To control whether we're in editing mode
   const [editEvent, setEditEvent] = useState(null); // To hold the event data for editing
   const [isLoading, setIsLoading] = useState(true); // Loading state for initial data fetch
@@ -41,10 +42,11 @@ const EventList = () => {
         const querySnapshot = await getDocs(eventsQuery);
         let eventsData = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         
-        // Sort by date in JavaScript (ascending by default)
-        eventsData.sort((a, b) => new Date(a.date) - new Date(b.date));
+        // Store all events
+        setAllEvents(eventsData);
         
-        setEvents(eventsData);
+        // Apply initial sort (nearest first)
+        sortEvents(eventsData, 'nearestFirst');
         setError(null);
       } catch (err) {
         console.error('Error fetching events:', err);
@@ -64,6 +66,7 @@ const EventList = () => {
     } else {
       setIsLoading(false);
       setEvents([]);
+      setAllEvents([]);
     }
   }, [user]);
 
@@ -113,67 +116,99 @@ const EventList = () => {
     return { countdownYears, countdownMonths, countdownDays };
   };
 
-  const sortEvents = (criterion) => {
-    let sortedEvents = [...events];
+  const sortEvents = (eventsToSort, criterion) => {
+    let eventsToProcess = eventsToSort ? [...eventsToSort] : [...allEvents];
+    
     switch (criterion) {
-      case 'dateAsc':
-        sortedEvents.sort((a, b) => new Date(a.date) - new Date(b.date));
-        break;
-      case 'dateDesc':
-        sortedEvents.sort((a, b) => new Date(b.date) - new Date(a.date));
-        break;
-      case 'nextEventAsc':
-        sortedEvents.sort((a, b) => {
-          const nextEventA = getNextEventCountdown(a.date);
-          const nextEventB = getNextEventCountdown(b.date);
-          return (
-            nextEventA.countdownYears - nextEventB.countdownYears ||
-            nextEventA.countdownMonths - nextEventB.countdownMonths ||
-            nextEventA.countdownDays - nextEventB.countdownDays
-          );
+      case 'nearestFirst':
+        // Nearest date first (upcoming events soonest first)
+        eventsToProcess.sort((a, b) => {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          // Get next occurrence of each event
+          const dateA = new Date(a.date);
+          const dateB = new Date(b.date);
+          
+          // Calculate next occurrence (if past, move to next year)
+          let nextA = new Date(today.getFullYear(), dateA.getMonth(), dateA.getDate());
+          if (nextA < today) {
+            nextA.setFullYear(today.getFullYear() + 1);
+          }
+          
+          let nextB = new Date(today.getFullYear(), dateB.getMonth(), dateB.getDate());
+          if (nextB < today) {
+            nextB.setFullYear(today.getFullYear() + 1);
+          }
+          
+          return nextA - nextB;
         });
         break;
-      case 'nextEventDesc':
-        sortedEvents.sort((a, b) => {
-          const nextEventA = getNextEventCountdown(a.date);
-          const nextEventB = getNextEventCountdown(b.date);
-          return (
-            nextEventB.countdownYears - nextEventA.countdownYears ||
-            nextEventB.countdownMonths - nextEventA.countdownMonths ||
-            nextEventB.countdownDays - nextEventA.countdownDays
-          );
+        
+      case 'latestFirst':
+        // Latest date first (most recent dates first - Z to A)
+        eventsToProcess.sort((a, b) => new Date(b.date) - new Date(a.date));
+        break;
+        
+      case 'today':
+        // Filter to show only today's events
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        eventsToProcess = eventsToProcess.filter(event => {
+          const eventDate = new Date(event.date);
+          eventDate.setHours(0, 0, 0, 0);
+          
+          return eventDate.getTime() === today.getTime();
+        });
+        
+        // Sort today's events by time (if needed, or keep nearest first logic)
+        eventsToProcess.sort((a, b) => {
+          const today = new Date();
+          const dateA = new Date(a.date);
+          const dateB = new Date(b.date);
+          
+          let nextA = new Date(today.getFullYear(), dateA.getMonth(), dateA.getDate());
+          if (nextA < today) {
+            nextA.setFullYear(today.getFullYear() + 1);
+          }
+          
+          let nextB = new Date(today.getFullYear(), dateB.getMonth(), dateB.getDate());
+          if (nextB < today) {
+            nextB.setFullYear(today.getFullYear() + 1);
+          }
+          
+          return nextA - nextB;
         });
         break;
+        
       default:
         break;
     }
-    setEvents(sortedEvents);
+    setEvents(eventsToProcess);
   };
   // Helper function to get descriptive text for sort criterion
   const getSortDescription = (criterion) => {
     switch(criterion) {
-      case 'dateAsc': 
-        return 'Oldest first';
-      case 'dateDesc': 
-        return 'Newest first';
-      case 'nextEventAsc': 
-        return 'Upcoming soon';
-      case 'nextEventDesc': 
-        return 'Upcoming later';
+      case 'nearestFirst': 
+        return 'Nearest First';
+      case 'latestFirst': 
+        return 'Latest First';
+      case 'today': 
+        return 'Today Only';
       default:
-        return 'Sort by date';
+        return 'Nearest First';
     }
   };
 
   const handleSortChange = () => {
     const nextCriterion = {
-      dateAsc: 'dateDesc',
-      dateDesc: 'nextEventAsc',
-      nextEventAsc: 'nextEventDesc',
-      nextEventDesc: 'dateAsc',
+      nearestFirst: 'latestFirst',
+      latestFirst: 'today',
+      today: 'nearestFirst',
     }[sortCriterion];
     setSortCriterion(nextCriterion);
-    sortEvents(nextCriterion);
+    sortEvents(null, nextCriterion);
   };
 
   const confirmDelete = (event) => {
@@ -206,7 +241,14 @@ const EventList = () => {
       
       const eventRef = doc(db, 'age-calculator', eventToDelete.id);
       await deleteDoc(eventRef);
-      setEvents(events.filter((event) => event.id !== eventToDelete.id));
+      
+      // Update both allEvents and events
+      const updatedAllEvents = allEvents.filter((event) => event.id !== eventToDelete.id);
+      setAllEvents(updatedAllEvents);
+      
+      // Re-apply current sort
+      sortEvents(updatedAllEvents, sortCriterion);
+      
       setShowDeleteConfirmation(false);
       setEventToDelete(null);
     } catch (error) {
@@ -228,8 +270,8 @@ const EventList = () => {
       // Verify user is authenticated
       const userId = requireAuth();
       
-      // Find the original event to verify ownership
-      const originalEvent = events.find(e => e.id === editEvent.id);
+      // Find the original event to verify ownership (check allEvents)
+      const originalEvent = allEvents.find(e => e.id === editEvent.id);
       if (!originalEvent) {
         throw new Error("Event not found.");
       }
@@ -253,9 +295,14 @@ const EventList = () => {
         updatedAt: new Date().toISOString()
       });
       
-      // Update the event in the local state, preserving userId
+      // Update the event in both allEvents and events, preserving userId
       const updatedEvent = { ...editEvent, userId: originalEvent.userId };
-      setEvents(events.map((event) => (event.id === editEvent.id ? updatedEvent : event)));
+      const updatedAllEvents = allEvents.map((event) => (event.id === editEvent.id ? updatedEvent : event));
+      setAllEvents(updatedAllEvents);
+      
+      // Re-apply current sort
+      sortEvents(updatedAllEvents, sortCriterion);
+      
       setIsEditing(false); // Close the edit modal
     } catch (error) {
       console.error('Error updating event:', error);
@@ -274,13 +321,26 @@ const EventList = () => {
   };  return (
     <div className="event-list-wrapper">
       <div className="event-list-header">
-        <h2>Events</h2>
-        {!isLoading && !error && events.length > 0 && (
+        <h2>Events{allEvents.length > 0 && ` (${getSortDescription(sortCriterion)})`}</h2>
+        {!isLoading && !error && allEvents.length > 0 && (
           <div className="sort-control">
             <button className="sort-button" onClick={handleSortChange}>
               <span className="sort-icon">🔄</span>
               <span className="sort-text">{getSortDescription(sortCriterion)}</span>
             </button>
+            {sortCriterion === 'today' && (
+              <button 
+                className="sort-button clear-filter-btn" 
+                onClick={() => {
+                  setSortCriterion('nearestFirst');
+                  sortEvents(null, 'nearestFirst');
+                }}
+                title="Show all events"
+              >
+                <span className="sort-icon">✕</span>
+                <span className="sort-text">Show All</span>
+              </button>
+            )}
           </div>
         )}
       </div>

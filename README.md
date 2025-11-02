@@ -229,6 +229,128 @@ The `firestore.rules` file enforces:
 - **Vite 7.1.12** - Build tool and dev server
 - **Vitest 4.0.6** - Testing framework
 
+## 🏛️ Technical Architecture
+
+### Firebase Authentication with Tokenization
+
+This project implements a comprehensive authentication system using **Firebase Authentication** with **token-based security**:
+
+#### Authentication Methods
+- **Email/Password Authentication**: Traditional email and password sign-up/sign-in
+- **Google OAuth**: One-click Google Sign-In using Firebase's Google Auth Provider
+- **Session Persistence**: Uses `browserLocalPersistence` for 7-day session management
+
+#### Token-Based Security Implementation
+- **Firebase ID Tokens**: All database operations require valid Firebase ID tokens
+- **Automatic Token Refresh**: Firebase SDK automatically refreshes tokens before expiration
+- **Token Validation**: Every CRUD operation validates the token before execution
+- **Client-Side Token Management**: 
+  - `getAuthToken()` utility function retrieves current user's ID token
+  - Tokens are validated for each database operation
+  - Expired sessions are automatically signed out
+
+#### Session Management
+- **7-Day Session Duration**: Users remain logged in for 7 days from initial login
+- **localStorage Tracking**: Login timestamps stored in localStorage for session tracking
+- **Automatic Expiration**: Sessions automatically expire after 7 days
+- **Persistent Sessions**: Authentication state persists across browser sessions and page refreshes
+
+#### Code Location
+- `src/utils/firebaseAuth.js` - Core authentication utilities and token management
+- `src/contexts/AuthContext.js` - Authentication context provider using `react-firebase-hooks`
+- `src/components/Auth.js` - Authentication UI component
+- `src/firebase.js` - Firebase configuration and persistence setup
+
+### Firebase Firestore Database
+
+The application uses **Firebase Firestore** (NoSQL cloud database) for all data storage:
+
+#### Database Structure
+```
+Collection: age-calculator
+├── Document ID (auto-generated)
+    ├── name: string
+    ├── date: string (ISO format)
+    ├── type: string
+    ├── userId: string (Firebase UID)
+    ├── createdAt: string (ISO timestamp)
+    └── updatedAt: string (ISO timestamp)
+```
+
+#### Data Operations
+- **CREATE**: New events are created with userId, ensuring user ownership
+- **READ**: Events are queried and filtered by userId for user-specific data
+- **UPDATE**: Event ownership is verified before allowing updates
+- **DELETE**: Event ownership is verified before allowing deletion
+
+#### Security Implementation
+- **User-Specific Queries**: All Firestore queries include `where('userId', '==', userId)`
+- **Ownership Verification**: Client-side checks ensure users can only modify their own data
+- **Security Rules**: Backend Firestore security rules enforce data access at database level
+- **Token Inclusion**: All Firestore operations automatically include Firebase ID tokens
+
+#### Code Location
+- `src/components/EventForm.js` - CREATE operations
+- `src/components/EventList.js` - READ, UPDATE, DELETE operations
+- `firestore.rules` - Server-side security rules
+
+### Security Architecture
+
+#### Multi-Layer Security
+1. **Frontend Validation**
+   - Authentication checks before all operations
+   - Ownership verification for UPDATE/DELETE
+   - User ID validation in queries
+
+2. **Backend Security Rules**
+   - Firestore rules enforce data access policies
+   - Token validation at database level
+   - User ID matching requirements
+
+3. **Token-Based Authentication**
+   - All requests include Firebase ID tokens
+   - Automatic token refresh mechanism
+   - Session expiration handling
+
+#### Protected Routes
+- **React Router Integration**: Uses `PrivateRoute` component to protect routes
+- **Automatic Redirects**: Unauthenticated users are redirected to `/auth`
+- **Route Guards**: All protected routes check authentication state
+
+### State Management
+
+#### React Context API
+- **AuthContext**: Manages global authentication state
+- **useAuth Hook**: Provides user, loading, and error states throughout the app
+- **Real-Time Updates**: Authentication state updates trigger component re-renders
+
+#### Local State Management
+- **Component-Level State**: Each component manages its own local state (forms, modals, etc.)
+- **Event State**: Events are stored in component state after fetching from Firestore
+- **Optimistic Updates**: UI updates immediately, then syncs with database
+
+### Data Flow
+
+```
+User Action → Auth Check → Token Retrieval → Firestore Query → Data Validation → UI Update
+     ↓              ↓              ↓               ↓                ↓              ↓
+  Component → useAuth() → getAuthToken() → Firestore API → Security Rules → React State
+```
+
+### Performance Optimizations
+
+- **Code Splitting**: Route-based code splitting with React Router
+- **Lazy Loading**: Components loaded on-demand
+- **Efficient Queries**: Indexed queries by userId for fast data retrieval
+- **Optimized Builds**: Vite provides fast builds and HMR (Hot Module Replacement)
+
+### Error Handling
+
+- **Authentication Errors**: User-friendly error messages for auth failures
+- **Firestore Errors**: Graceful handling of database errors
+- **Network Errors**: Retry mechanisms and error states
+- **Validation Errors**: Client-side validation with clear error messages
+
 ## 📄 License
 
 This project is private and not licensed for public use.
